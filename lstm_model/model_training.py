@@ -1,79 +1,36 @@
 import pandas as pd
 import numpy as np
 
-all_players = pd.read_csv("/Users/sumeetkulkarni/Desktop/lstm-nba-hof-predictor/lstm_model/data/Player Per Game.csv")
-all_players = all_players.sort_values(by=['player_id', 'season'])
-all_players = all_players.drop(['seas_id', 'birth_year', 'age', 'experience', 'lg', 'gs'], axis=1).fillna(0)
-advanced_stats = pd.read_csv("/Users/sumeetkulkarni/Desktop/lstm-nba-hof-predictor/lstm_model/data/Advanced.csv")
-advanced_stats = advanced_stats.sort_values(by=['player_id', 'season']).fillna(0)
-all_players[["ows","dws","ws","ws_48","obpm","dbpm","bpm","vorp", "per","ts_percent"]] = advanced_stats[["ows","dws","ws","ws_48","obpm","dbpm","bpm","vorp", "per","ts_percent"]]
+train_data = pd.read_csv("nba_stats_dataset.csv")
+train_data = train_data.drop(['Unnamed: 0', 'player_id', 'player'], axis=1)
+print(train_data)
+train_data_np = train_data.to_numpy()
 
-#print(all_players)
-zeros = [0] * 30933
+print(train_data_np.shape)
 
+X = train_data_np[:,:-1]
+y = train_data_np[:,-1]
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
 
-all_players["all_star"] = zeros
-all_players["roy"] = zeros
-all_players["smoy"] = zeros
-all_players["dpoy"] = zeros
-all_players["mip"] = zeros
-all_players["mvp"] = zeros
-all_players["All-League"] = zeros
-all_players["All-Defense"] = zeros
-all_players["All-Rookie"] = zeros
-all_players["Champion"] = zeros
-all_players["Finals MVP"] = zeros
+from sklearn import svm
 
-all_star_df = pd.read_csv("/Users/sumeetkulkarni/Desktop/lstm-nba-hof-predictor/lstm_model/data/All-Star Selections.csv")
+#Create a svm Classifier
+clf = svm.SVC(kernel='linear') # Linear Kernel
 
-for index, row in all_star_df.iterrows():
-    name = row["player"]
-    season = row["season"]
-    all_players.loc[(all_players["player"]==name) & (all_players["season"]==season), "all_star"] = 1
+#Train the model using the training sets
+clf.fit(X_train, y_train)
 
-award_shares_df = pd.read_csv("/Users/sumeetkulkarni/Desktop/lstm-nba-hof-predictor/lstm_model/data/Player Award Shares.csv")
+#Predict the response for test dataset
+y_pred = clf.predict(X_test)
 
-for index, row in award_shares_df.iterrows():
-    if row["winner"]:
-        name = row["player"]
-        award = row["award"]
-        season = row["season"]
-        if award == "nba mvp" or award == "aba mvp":
-            award = "mvp"
-        elif award == "nba roy" or award == "aba roy":
-            award = "roy"
-        all_players.loc[(all_players["player"]==name) & (all_players["season"]==season), award] = 1
+from sklearn import metrics
 
+# Model Accuracy: how often is the classifier correct?
+print("Accuracy:",metrics.accuracy_score(y_test, y_pred))
 
-eos_teams_df = pd.read_csv("/Users/sumeetkulkarni/Desktop/lstm-nba-hof-predictor/lstm_model/data/End of Season Teams.csv")
+test = np.array([665,21815.0,4867,10669,1979.0,4758.0,2888,5911,1240,1461,295.0,2024.0,2319.0,1543,589.0,355.0,1127.0,1399,12953,5,0,0,0,0,0,3,2,1,0])
 
-for index, row in eos_teams_df.iterrows():
-    season = row["season"]
-    name = row["player"]
-    team = row["type"]
-    if team == "All-NBA" or team == "All-ABA" or team == "All-BAA":
-        team = "All-League"
-    num = row["number_tm"][0]
-    all_players.loc[(all_players["player"]==name) & (all_players["season"]==season), team] = num
+pred = clf.predict(test.reshape(1, -1))
 
-finals_df = pd.read_csv("/Users/sumeetkulkarni/Desktop/lstm-nba-hof-predictor/lstm_model/data/Finals MVPs.csv")
-
-for index, row in finals_df.iterrows():
-    season = int(row["Season"][:4])+1
-    name = row["Player"]
-    team = row["Tm"]
-    #print(season, name, team)
-    all_players.loc[(all_players["player"]==name) & (all_players["season"]==season), "Finals MVP"] = 1
-    all_players.loc[(all_players["tm"]==team) & (all_players["season"]==season), "Champion"] = 1
-
-print(all_players.loc[(all_players["player"]=="Giannis Antetokounmpo")])
-
-hof_stats = pd.read_csv("/Users/sumeetkulkarni/Desktop/lstm-nba-hof-predictor/lstm_model/data/NBA Hall of Famers 2021.csv")
-
-hof_actual = np.zeros(shape=(5094,))
-
-for i in range(5094):
-    id = i+1
-    name = all_players.loc[all_players["player_id"]==id]["player"].iloc[0]
-    if not hof_stats.loc[hof_stats["Name"] == name]["In_Hall_of_fame"].empty and hof_stats.loc[hof_stats["Name"] == name]["In_Hall_of_fame"].iloc[0]==1:
-        hof_actual[i] = 1
+print(pred)
